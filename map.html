@@ -14,7 +14,7 @@
     <div id="map"></div>
     <script>
         mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ3ZXdycnUwMHNuMmtwdjkya2c4YWozIn0.Vx95NcOakMYQn_x9klVCxg';
-
+    
         // Parse URL parameters
         function getQueryParams() {
             const params = new URLSearchParams(window.location.search);
@@ -24,24 +24,31 @@
                 end: params.get('end') ? params.get('end').split(',').map(Number) : null,
             };
         }
-
+    
         const { start, stops, end } = getQueryParams();
-
+    
         // Validate required parameters
         if (!start || !end) {
             alert("Please provide 'start' and 'end' query parameters.");
             throw new Error("Missing required parameters");
         }
-
-        const route = [start, ...stops, end]; // Combine start, stops, and end locations
-
+    
+        // Filter out duplicate stops based on coordinates (longitude, latitude)
+        const uniqueStops = stops.filter((value, index, self) => {
+            return index === self.findIndex((t) => (
+                t[0] === value[0] && t[1] === value[1]
+            ));
+        });
+    
+        const route = [start, ...uniqueStops, end]; // Combine start, stops, and end locations
+    
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
             center: start, // Center map on start location
             zoom: 12
         });
-
+    
         map.on('load', () => {
             // Draw the route
             map.addSource('route', {
@@ -54,7 +61,7 @@
                     }
                 }
             });
-
+    
             map.addLayer({
                 id: 'route',
                 type: 'line',
@@ -62,12 +69,13 @@
                 layout: { 'line-join': 'round', 'line-cap': 'round' },
                 paint: { 'line-color': '#007cbf', 'line-width': 4 }
             });
-
+    
             // Add markers for each stop
             route.forEach(coord => {
                 new mapboxgl.Marker().setLngLat(coord).addTo(map);
             });
         });
     </script>
+    
 </body>
 </html>
