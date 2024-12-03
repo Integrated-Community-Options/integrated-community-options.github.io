@@ -15,12 +15,14 @@
     <script>
         mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ3ZXdycnUwMHNuMmtwdjkya2c4YWozIn0.Vx95NcOakMYQn_x9klVCxg';
     
-      // Parse URL parameters with logging for debugging
+      // Parse URL parameters with improved parsing for stops
 function getQueryParams() {
     const params = new URLSearchParams(window.location.search);
-    
+
     const start = params.get('start') ? params.get('start').split(',').map(Number) : null;
-    const stops = params.get('stops') ? params.get('stops').split('|').map(stop => stop.split(',').map(Number)) : [];
+    const stops = params.get('stops') 
+        ? params.get('stops').split('|').map(stop => stop.split(',').map(Number))
+        : [];
     const end = params.get('end') ? params.get('end').split(',').map(Number) : null;
     
     console.log('Start:', start);
@@ -29,6 +31,7 @@ function getQueryParams() {
     
     return { start, stops, end };
 }
+
 
     
         const { start, stops, end } = getQueryParams();
