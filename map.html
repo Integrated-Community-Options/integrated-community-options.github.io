@@ -15,25 +15,19 @@
     <script>
         mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA';
     
-      // Parse URL parameters with improved parsing for stops
-function getQueryParams() {
-    const params = new URLSearchParams(window.location.search);
+        // Parse URL parameters with improved parsing for stops
+        function getQueryParams() {
+            const params = new URLSearchParams(window.location.search);
 
-    const start = params.get('start') ? params.get('start').split(',').map(Number) : null;
-    const stops = params.get('stops') 
-        ? params.get('stops').split('|').map(stop => stop.split(',').map(Number))
-        : [];
-    const end = params.get('end') ? params.get('end').split(',').map(Number) : null;
-    
-    console.log('Start:', start);
-    console.log('Stops:', stops);
-    console.log('End:', end);
-    
-    return { start, stops, end };
-}
+            const start = params.get('start') ? params.get('start').split(',').map(Number) : null;
+            const stops = params.get('stops') 
+                ? params.get('stops').split('|').map(stop => stop.split(',').map(Number))
+                : [];
+            const end = params.get('end') ? params.get('end').split(',').map(Number) : null;
 
-
-    
+            return { start, stops, end };
+        }
+        
         const { start, stops, end } = getQueryParams();
     
         // Validate required parameters
@@ -53,9 +47,9 @@ function getQueryParams() {
     
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11',
+            style: 'mapbox://styles/mapbox/basic-v9', // Using a simpler style for testing
             center: start, // Center map on start location
-            zoom: 12
+            zoom: 14 // Adjusted zoom for better street visibility
         });
     
         map.on('load', () => {
@@ -85,6 +79,5 @@ function getQueryParams() {
             });
         });
     </script>
-    
 </body>
 </html>
