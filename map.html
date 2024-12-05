@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Mapbox Route</title>
+    <title>Test Mapbox with Single Coordinate</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
     <style>
@@ -14,81 +14,21 @@
     <div id="map"></div>
     <script>
         mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA';
-    
-        // Parse URL parameters
-        function getQueryParams() {
-            const params = new URLSearchParams(window.location.search);
-            const start = params.get('start') ? params.get('start').split(',').map(Number) : null;
-            const stops = params.get('stops') 
-                ? params.get('stops').split('|').map(stop => stop.split(',').map(Number))
-                : [];
-            const end = params.get('end') ? params.get('end').split(',').map(Number) : null;
-            return { start, stops, end };
-        }
-
-        function isValidCoordinate(coord) {
-            return Array.isArray(coord) && coord.length === 2 && 
-                   !isNaN(coord[0]) && !isNaN(coord[1]) && 
-                   coord[0] >= -180 && coord[0] <= 180 && 
-                   coord[1] >= -90 && coord[1] <= 90;
-        }
         
-        const { start, stops, end } = getQueryParams();
-
-        // Log parsed coordinates for debugging
-        console.log("Start Coordinate:", start);
-        console.log("Stops Coordinates:", stops);
-        console.log("End Coordinate:", end);
-
-        // Validate required parameters
-        if (!start || !end || !isValidCoordinate(start) || !isValidCoordinate(end)) {
-            alert("Please provide valid 'start' and 'end' query parameters.");
-            throw new Error("Missing or invalid required parameters");
-        }
+        // Set up a single coordinate to test
+        const coordinate = [-118.22414, 34.116769]; // Los Angeles coordinates (Longitude, Latitude)
         
-        const validStops = stops.filter(isValidCoordinate);
-        const route = [start, ...validStops, end];
-
-        console.log("Validated Route:", route);
-
+        // Create the map
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
-            center: start,
-            zoom: 10
+            center: coordinate,
+            zoom: 12
         });
 
         map.on('load', () => {
-            if (route.every(isValidCoordinate)) {
-                map.addSource('route', {
-                    type: 'geojson',
-                    data: {
-                        type: 'Feature',
-                        geometry: {
-                            type: 'LineString',
-                            coordinates: route
-                        }
-                    }
-                });
-
-                map.addLayer({
-                    id: 'route',
-                    type: 'line',
-                    source: 'route',
-                    layout: { 'line-join': 'round', 'line-cap': 'round' },
-                    paint: { 'line-color': '#007cbf', 'line-width': 4 }
-                });
-
-                route.forEach(coord => {
-                    new mapboxgl.Marker().setLngLat(coord).addTo(map);
-                });
-
-                const bounds = new mapboxgl.LngLatBounds();
-                route.forEach(coord => bounds.extend(coord));
-                map.fitBounds(bounds, { padding: 20 });
-            } else {
-                console.error("Invalid route data:", route);
-            }
+            // Add a marker at the coordinate
+            new mapboxgl.Marker().setLngLat(coordinate).addTo(map);
         });
     </script>
 </body>
