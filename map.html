@@ -77,55 +77,55 @@
                     .setPopup(new mapboxgl.Popup().setText(`Stop ${index + 1}`));
             });
 
-            // Call Mapbox Directions API to calculate best route
-            calculateRoute(route);
+            // Draw the route
+            map.addSource('route', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: route
+                    }
+                }
+            });
+
+            map.addLayer({
+                id: 'route',
+                type: 'line',
+                source: 'route',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#007cbf', 'line-width': 4 }
+            });
+
+            // Call Mapbox Directions API to calculate route distance
+            calculateRouteDistance(route);
         });
 
-        // Function to calculate the best route using the Mapbox Directions API
-        function calculateRoute(route) {
-            const routeCoordinates = route.map(coord => coord.join(',')).join(';');
+        // Function to calculate route distance using the Mapbox Directions API
+function calculateRouteDistance(route) {
+    const routeCoordinates = route.map(coord => coord.join(',')).join(';');
 
-            const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${routeCoordinates}?alternatives=true&geometries=geojson&steps=true&access_token=${mapboxgl.accessToken}`;
+    const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${routeCoordinates}?alternatives=false&geometries=geojson&steps=false&access_token=${mapboxgl.accessToken}`;
 
-            fetch(directionsUrl)
-                .then(response => response.json())
-                .then(data => {
-                    const routeGeoJSON = data.routes[0].geometry;
+    fetch(directionsUrl)
+        .then(response => response.json())
+        .then(data => {
+            const distance = data.routes[0].distance; // distance in meters
+            const distanceInMiles = (distance / 1609.34).toFixed(2); // Convert to miles
+            const duration = data.routes[0].duration; // duration in seconds
+            const durationInMinutes = (duration / 60).toFixed(0); // Convert to minutes
 
-                    // Draw the route on the map
-                    map.addSource('route', {
-                        type: 'geojson',
-                        data: {
-                            type: 'Feature',
-                            geometry: routeGeoJSON
-                        }
-                    });
-
-                    map.addLayer({
-                        id: 'route',
-                        type: 'line',
-                        source: 'route',
-                        layout: { 'line-join': 'round', 'line-cap': 'round' },
-                        paint: { 'line-color': '#007cbf', 'line-width': 4 }
-                    });
-
-                    // Calculate distance and duration
-                    const distance = data.routes[0].distance; // distance in meters
-                    const distanceInMiles = (distance / 1609.34).toFixed(2); // Convert to miles
-                    const duration = data.routes[0].duration; // duration in seconds
-                    const durationInMinutes = (duration / 60).toFixed(0); // Convert to minutes
-
-                    // Display the distance and time on the map
-                    document.getElementById('route-info').innerHTML = `
-                        <strong>Distance:</strong> ${distanceInMiles} miles<br>
-                        <strong>Estimated Time:</strong> ${durationInMinutes} minutes
-                    `;
-                })
-                .catch(error => {
-                    console.error('Error calculating route distance:', error);
-                    document.getElementById('route-info').innerHTML = 'Error calculating route distance.';
-                });
-        }
+            // Display the distance and time on the map
+            document.getElementById('route-info').innerHTML = `
+                <strong>Distance:</strong> ${distanceInMiles} miles<br>
+                <strong>Estimated Time:</strong> ${durationInMinutes} minutes
+            `;
+        })
+        .catch(error => {
+            console.error('Error calculating route distance:', error);
+            document.getElementById('route-info').innerHTML = 'Error calculating route distance.';
+        });
+}
     </script>
 </body>
 </html>
