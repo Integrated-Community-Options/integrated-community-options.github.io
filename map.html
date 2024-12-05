@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Optimized Mapbox Route</title>
+    <title>Mapbox Dynamic Route</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
     <style>
@@ -16,7 +16,7 @@
     <div class="info" id="route-info">Loading route information...</div>
 
     <script>
-        mapboxgl.accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN';
+        mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA';
 
         // Function to parse URL parameters for start, stops, and end
         function getQueryParams() {
@@ -34,29 +34,36 @@
 
         const { start, stops, end } = getQueryParams();
 
+        // Validate required parameters
         if (!start || !end) {
             alert("Please provide 'start' and 'end' query parameters.");
             throw new Error("Missing required parameters");
         }
 
-        // Combine all waypoints for the route
-        const waypoints = [start, ...stops, end];
+        // Filter out duplicate stops based on coordinates (longitude, latitude)
+        const uniqueStops = stops.filter((value, index, self) => {
+            return index === self.findIndex((t) => (
+                t[0] === value[0] && t[1] === value[1]
+            ));
+        });
+
+        const route = [start, ...uniqueStops, end]; // Combine start, stops, and end locations
 
         // Create the map
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
-            center: start,
-            zoom: 14
+            center: start,  // Center the map on the start coordinates
+            zoom: 14  // Adjust zoom for better visibility
         });
 
         map.on('load', () => {
-            // Add markers for start and end points
+            // Add markers for Start and End locations
             new mapboxgl.Marker({ color: 'green' })
                 .setLngLat(start)
                 .addTo(map)
                 .setPopup(new mapboxgl.Popup().setText("Start Location"));
-
+            
             new mapboxgl.Marker({ color: 'red' })
                 .setLngLat(end)
                 .addTo(map)
@@ -70,60 +77,53 @@
                     .setPopup(new mapboxgl.Popup().setText(`Stop ${index + 1}`));
             });
 
-            // Calculate and display the optimized route
-            calculateOptimizedRoute(waypoints);
+            // Call Mapbox Directions API to calculate best route
+            calculateRoute(route);
         });
 
-        // Function to calculate the best route using Mapbox Directions API
-        function calculateOptimizedRoute(waypoints) {
-            const coordinates = waypoints.map(coord => coord.join(',')).join(';');
-            const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?overview=full&geometries=geojson&steps=false&access_token=${mapboxgl.accessToken}`;
+        // Function to calculate the best route using the Mapbox Directions API
+        function calculateRoute(route) {
+            const routeCoordinates = route.map(coord => coord.join(',')).join(';');
+
+            const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${routeCoordinates}?alternatives=true&geometries=geojson&steps=true&access_token=${mapboxgl.accessToken}`;
 
             fetch(directionsUrl)
                 .then(response => response.json())
                 .then(data => {
-                    if (data.routes && data.routes.length > 0) {
-                        const route = data.routes[0];
-                        const routeCoordinates = route.geometry.coordinates;
-                        const distanceInMiles = (route.distance / 1609.34).toFixed(2);
-                        const durationInMinutes = (route.duration / 60).toFixed(0);
+                    const routeGeoJSON = data.routes[0].geometry;
 
-                        // Display route distance and time
-                        document.getElementById('route-info').innerHTML = `
-                            <strong>Distance:</strong> ${distanceInMiles} miles<br>
-                            <strong>Estimated Time:</strong> ${durationInMinutes} minutes
-                        `;
+                    // Draw the route on the map
+                    map.addSource('route', {
+                        type: 'geojson',
+                        data: {
+                            type: 'Feature',
+                            geometry: routeGeoJSON
+                        }
+                    });
 
-                        // Add the route line to the map
-                        map.addSource('optimized-route', {
-                            type: 'geojson',
-                            data: {
-                                type: 'Feature',
-                                geometry: {
-                                    type: 'LineString',
-                                    coordinates: routeCoordinates
-                                }
-                            }
-                        });
+                    map.addLayer({
+                        id: 'route',
+                        type: 'line',
+                        source: 'route',
+                        layout: { 'line-join': 'round', 'line-cap': 'round' },
+                        paint: { 'line-color': '#007cbf', 'line-width': 4 }
+                    });
 
-                        map.addLayer({
-                            id: 'optimized-route',
-                            type: 'line',
-                            source: 'optimized-route',
-                            layout: { 'line-join': 'round', 'line-cap': 'round' },
-                            paint: { 'line-color': '#007cbf', 'line-width': 4 }
-                        });
+                    // Calculate distance and duration
+                    const distance = data.routes[0].distance; // distance in meters
+                    const distanceInMiles = (distance / 1609.34).toFixed(2); // Convert to miles
+                    const duration = data.routes[0].duration; // duration in seconds
+                    const durationInMinutes = (duration / 60).toFixed(0); // Convert to minutes
 
-                        // Fit the map to the route
-                        const bounds = routeCoordinates.reduce((bounds, coord) => bounds.extend(coord), new mapboxgl.LngLatBounds(routeCoordinates[0], routeCoordinates[0]));
-                        map.fitBounds(bounds, { padding: 50 });
-                    } else {
-                        document.getElementById('route-info').innerText = 'No routes found.';
-                    }
+                    // Display the distance and time on the map
+                    document.getElementById('route-info').innerHTML = `
+                        <strong>Distance:</strong> ${distanceInMiles} miles<br>
+                        <strong>Estimated Time:</strong> ${durationInMinutes} minutes
+                    `;
                 })
                 .catch(error => {
-                    console.error('Error fetching directions:', error);
-                    document.getElementById('route-info').innerText = 'Error fetching directions.';
+                    console.error('Error calculating route distance:', error);
+                    document.getElementById('route-info').innerHTML = 'Error calculating route distance.';
                 });
         }
     </script>
