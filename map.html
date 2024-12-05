@@ -10,12 +10,18 @@
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         .info { position: absolute; top: 10px; left: 10px; background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; }
+        .links { position: absolute; top: 90px; left: 10px; background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; max-width: 300px; }
+        .links a { display: block; color: blue; text-decoration: none; margin-bottom: 5px; }
+        .links a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
     <div class="info" id="route-info">Loading route information...</div>
+    <div class="links" id="location-links">
+        <!-- Google Maps link for the entire route will be dynamically added here -->
+    </div>
 
     <script>
         mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA';
@@ -71,6 +77,9 @@
 
             // Call the Mapbox Directions API to calculate the route
             calculateRoute([start, ...stops, end]);
+
+            // Add Google Maps link for the entire route
+            addGoogleMapsLink(start, stops, end);
         });
 
         // Function to calculate the route using Mapbox Directions API
@@ -116,6 +125,19 @@
                     console.error('Error fetching route:', error);
                     document.getElementById('route-info').innerHTML = 'Error fetching route data.';
                 });
+        }
+
+        // Function to generate a single Google Maps link for the entire route
+        function addGoogleMapsLink(start, stops, end) {
+            // Build the Google Maps URL with all locations (start, stops, and end)
+            const locations = [start, ...stops, end].map(coord => coord.join(',')).join('&waypoints=');
+            const googleMapsUrl = `https://www.google.com/maps/dir/${start.join(',')}/waypoints=${locations}`;
+
+            // Display the Google Maps link
+            document.getElementById('location-links').innerHTML = `
+                <strong>Open the route in Google Maps:</strong><br>
+                <a href="${googleMapsUrl}" target="_blank">View Route in Google Maps</a>
+            `;
         }
     </script>
 
