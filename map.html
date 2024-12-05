@@ -22,7 +22,9 @@
             // Parse start and end as lat, lng pairs
             const start = params.get('start') ? params.get('start').split(',').map(Number) : null;
             const stops = params.get('stops')
-                ? params.get('stops').split('|').map(stop => stop.split(',').map(Number))
+                ? params.get('stops').split('|')
+                      .filter(stop => stop.trim() !== "") // Remove empty stops
+                      .map(stop => stop.split(',').map(Number))
                 : [];
             const end = params.get('end') ? params.get('end').split(',').map(Number) : null;
 
@@ -44,7 +46,7 @@
             ));
         });
 
-        const route = [start, ...uniqueStops, end]; // Combine start, stops, and end locations
+        const waypoints = [start, ...uniqueStops, end]; // Combine start, stops, and end locations
 
         // Create the map
         const map = new mapboxgl.Map({
@@ -67,32 +69,43 @@
                 .setPopup(new mapboxgl.Popup().setText("End Location"));
 
             // Add markers for stops
-            stops.forEach((stop, index) => {
+            uniqueStops.forEach((stop, index) => {
                 new mapboxgl.Marker({ color: 'blue' })
                     .setLngLat(stop)
                     .addTo(map)
                     .setPopup(new mapboxgl.Popup().setText(`Stop ${index + 1}`));
             });
 
-            // Draw the route
-            map.addSource('route', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: route
-                    }
-                }
-            });
+            // Use Mapbox Directions API to calculate and display the route
+            const coordinates = waypoints.map(([lng, lat]) => `${lng},${lat}`).join(';');
+            const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
 
-            map.addLayer({
-                id: 'route',
-                type: 'line',
-                source: 'route',
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: { 'line-color': '#007cbf', 'line-width': 4 }
-            });
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.routes && data.routes.length > 0) {
+                        const route = data.routes[0].geometry;
+
+                        map.addSource('route', {
+                            type: 'geojson',
+                            data: {
+                                type: 'Feature',
+                                geometry: route
+                            }
+                        });
+
+                        map.addLayer({
+                            id: 'route',
+                            type: 'line',
+                            source: 'route',
+                            layout: { 'line-join': 'round', 'line-cap': 'round' },
+                            paint: { 'line-color': '#007cbf', 'line-width': 4 }
+                        });
+                    } else {
+                        alert('No route found.');
+                    }
+                })
+                .catch(error => console.error('Error fetching route:', error));
         });
     </script>
 </body>
