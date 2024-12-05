@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Mapbox Optimized Route</title>
+    <title>Mapbox Dynamic Route</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
     <style>
@@ -15,28 +15,23 @@
             background-color: rgba(255, 255, 255, 0.8);
             padding: 10px;
             border-radius: 5px;
-            z-index: 1;
         }
-        .gps-link {
-            margin-top: 10px;
+        .info a {
             display: block;
-            color: blue;
-            text-decoration: underline;
-            cursor: pointer;
+            margin-top: 10px;
+            color: #007cbf;
+            text-decoration: none;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="info" id="route-info">
-        Loading route information...
-        <a id="gps-link" class="gps-link" target="_blank">Open in Google Maps</a>
-    </div>
+    <div class="info" id="route-info">Loading route information...</div>
 
     <script>
-        mapboxgl.accessToken = 'your-mapbox-access-token-here';
+        mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA';
 
-        // Parse query parameters for start, stops, and end
         function getQueryParams() {
             const params = new URLSearchParams(window.location.search);
             const start = params.get('start') ? params.get('start').split(',').map(Number) : null;
@@ -48,63 +43,58 @@
         }
 
         const { start, stops, end } = getQueryParams();
-
         if (!start || !end) {
             alert("Please provide 'start' and 'end' query parameters.");
-            throw new Error("Missing required parameters.");
+            throw new Error("Missing required parameters");
         }
+
+        const uniqueStops = stops.filter((value, index, self) => {
+            return index === self.findIndex((t) => t[0] === value[0] && t[1] === value[1]);
+        });
+        const route = [start, ...uniqueStops, end];
 
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
             center: start,
-            zoom: 12
+            zoom: 14
         });
 
         map.on('load', () => {
-            const allPoints = [start, ...stops, end];
-            allPoints.forEach((point, index) => {
-                new mapboxgl.Marker({ color: index === 0 ? 'green' : index === allPoints.length - 1 ? 'red' : 'blue' })
-                    .setLngLat(point)
+            new mapboxgl.Marker({ color: 'green' })
+                .setLngLat(start)
+                .addTo(map)
+                .setPopup(new mapboxgl.Popup().setText("Start Location"));
+            
+            new mapboxgl.Marker({ color: 'red' })
+                .setLngLat(end)
+                .addTo(map)
+                .setPopup(new mapboxgl.Popup().setText("End Location"));
+
+            stops.forEach((stop, index) => {
+                new mapboxgl.Marker({ color: 'blue' })
+                    .setLngLat(stop)
                     .addTo(map)
-                    .setPopup(new mapboxgl.Popup().setText(index === 0 ? 'Start' : index === allPoints.length - 1 ? 'End' : `Stop ${index}`));
+                    .setPopup(new mapboxgl.Popup().setText(`Stop ${index + 1}`));
             });
 
-            calculateOptimizedRoute(start, stops, end);
+            fetchRoute(route);
         });
 
-        // Calculate the optimized route using Mapbox Directions API
-        function calculateOptimizedRoute(start, stops, end) {
-            const waypoints = stops.map(stop => `${stop[0]},${stop[1]}`).join(';');
-            const coordinates = `${start.join(',')};${waypoints ? waypoints + ';' : ''}${end.join(',')}`;
-
-            const directionsUrl = `https://api.mapbox.com/optimized-trips/v1/mapbox/driving/${coordinates}?geometries=geojson&access_token=${mapboxgl.accessToken}`;
+        function fetchRoute(route) {
+            const routeCoordinates = route.map(coord => coord.join(',')).join(';');
+            const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${routeCoordinates}?alternatives=false&geometries=geojson&steps=false&access_token=${mapboxgl.accessToken}`;
 
             fetch(directionsUrl)
                 .then(response => response.json())
                 .then(data => {
-                    if (!data.trips || data.trips.length === 0) {
-                        throw new Error("No route found.");
-                    }
+                    const routeData = data.routes[0];
+                    const distance = (routeData.distance / 1609.34).toFixed(2);
+                    const duration = (routeData.duration / 60).toFixed(0);
 
-                    const route = data.trips[0];
-                    const distance = (route.distance / 1609.34).toFixed(2); // Convert to miles
-                    const duration = (route.duration / 60).toFixed(0); // Convert to minutes
-
-                    // Display route info
-                    document.getElementById('route-info').innerHTML = `
-                        <strong>Distance:</strong> ${distance} miles<br>
-                        <strong>Estimated Time:</strong> ${duration} minutes
-                        <a id="gps-link" class="gps-link" target="_blank">Open in Google Maps</a>
-                    `;
-
-                    // Display the route on the map
                     map.addSource('route', {
                         type: 'geojson',
-                        data: {
-                            type: 'Feature',
-                            geometry: route.geometry
-                        }
+                        data: routeData.geometry
                     });
 
                     map.addLayer({
@@ -115,14 +105,22 @@
                         paint: { 'line-color': '#007cbf', 'line-width': 4 }
                     });
 
-                    // Create GPS link for Google Maps
-                    const googleMapsUrl = `https://www.google.com/maps/dir/${coordinates.replace(/;/g, '/')}`;
-                    document.getElementById('gps-link').href = googleMapsUrl;
+                    document.getElementById('route-info').innerHTML = `
+                        <strong>Distance:</strong> ${distance} miles<br>
+                        <strong>Estimated Time:</strong> ${duration} minutes
+                        <a href="${generateGoogleMapsLink(route)}" target="_blank">Open in Google Maps</a>
+                    `;
                 })
                 .catch(error => {
-                    console.error('Error calculating route:', error);
-                    document.getElementById('route-info').innerHTML = 'Error calculating route.';
+                    console.error('Error fetching route:', error);
+                    document.getElementById('route-info').innerHTML = 'Error loading route.';
                 });
+        }
+
+        function generateGoogleMapsLink(route) {
+            const baseUrl = 'https://www.google.com/maps/dir/';
+            const waypoints = route.map(coord => coord.join(',')).join('/');
+            return `${baseUrl}${waypoints}`;
         }
     </script>
 </body>
