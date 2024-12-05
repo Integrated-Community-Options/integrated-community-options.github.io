@@ -2,7 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Test Mapbox with Single Coordinate</title>
+    <title>Mapbox Dynamic Route</title>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
     <style>
@@ -14,21 +14,85 @@
     <div id="map"></div>
     <script>
         mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA';
-        
-        // Set up a single coordinate to test
-        const coordinate = [-118.22414, 34.116769]; // Los Angeles coordinates (Longitude, Latitude)
-        
+
+        // Function to parse URL parameters for start, stops, and end
+        function getQueryParams() {
+            const params = new URLSearchParams(window.location.search);
+
+            // Parse start and end as lat, lng pairs
+            const start = params.get('start') ? params.get('start').split(',').map(Number) : null;
+            const stops = params.get('stops')
+                ? params.get('stops').split('|').map(stop => stop.split(',').map(Number))
+                : [];
+            const end = params.get('end') ? params.get('end').split(',').map(Number) : null;
+
+            return { start, stops, end };
+        }
+
+        const { start, stops, end } = getQueryParams();
+
+        // Validate required parameters
+        if (!start || !end) {
+            alert("Please provide 'start' and 'end' query parameters.");
+            throw new Error("Missing required parameters");
+        }
+
+        // Filter out duplicate stops based on coordinates (longitude, latitude)
+        const uniqueStops = stops.filter((value, index, self) => {
+            return index === self.findIndex((t) => (
+                t[0] === value[0] && t[1] === value[1]
+            ));
+        });
+
+        const route = [start, ...uniqueStops, end]; // Combine start, stops, and end locations
+
         // Create the map
         const map = new mapboxgl.Map({
             container: 'map',
             style: 'mapbox://styles/mapbox/streets-v11',
-            center: coordinate,
-            zoom: 12
+            center: start,  // Center the map on the start coordinates
+            zoom: 14  // Adjust zoom for better visibility
         });
 
         map.on('load', () => {
-            // Add a marker at the coordinate
-            new mapboxgl.Marker().setLngLat(coordinate).addTo(map);
+            // Add markers for Start and End locations
+            new mapboxgl.Marker({ color: 'green' })
+                .setLngLat(start)
+                .addTo(map)
+                .setPopup(new mapboxgl.Popup().setText("Start Location"));
+            
+            new mapboxgl.Marker({ color: 'red' })
+                .setLngLat(end)
+                .addTo(map)
+                .setPopup(new mapboxgl.Popup().setText("End Location"));
+
+            // Add markers for stops
+            stops.forEach((stop, index) => {
+                new mapboxgl.Marker({ color: 'blue' })
+                    .setLngLat(stop)
+                    .addTo(map)
+                    .setPopup(new mapboxgl.Popup().setText(`Stop ${index + 1}`));
+            });
+
+            // Draw the route
+            map.addSource('route', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: route
+                    }
+                }
+            });
+
+            map.addLayer({
+                id: 'route',
+                type: 'line',
+                source: 'route',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#007cbf', 'line-width': 4 }
+            });
         });
     </script>
 </body>
