@@ -1,131 +1,98 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
-    <title>Mapbox Dynamic Route</title>
-    <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
-    <link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet" />
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map Route</title>
+    <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&libraries=geometry,places"></script>
+    <script src="route.js"></script> <!-- Link to the external route.js file -->
     <style>
-        body { margin: 0; padding: 0; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        .info { position: absolute; top: 10px; left: 10px; background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px; }
+        #map {
+            height: 100%;
+            width: 100%;
+        }
     </style>
 </head>
 <body>
+    <h1>Route and Directions</h1>
     <div id="map"></div>
-    <div class="info" id="route-info">Loading route information...</div>
 
     <script>
-        mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA';
-
-        // Function to parse URL parameters for start, stops, and end
-        function getQueryParams() {
-            const params = new URLSearchParams(window.location.search);
-
-            // Parse start and end as lat, lng pairs
-            const start = params.get('start') ? params.get('start').split(',').map(Number) : null;
-            const stops = params.get('stops')
-                ? params.get('stops').split('|').map(stop => stop.split(',').map(Number))
-                : [];
-            const end = params.get('end') ? params.get('end').split(',').map(Number) : null;
-
-            return { start, stops, end };
+        // Function to get a parameter value from the URL (rowId in this case)
+        function getUrlParameter(name) {
+            const urlParams = new URLSearchParams(window.location.search);
+            return urlParams.get(name); // Return the value of the parameter
         }
 
-        const { start, stops, end } = getQueryParams();
-
-        // Validate required parameters
-        if (!start || !end) {
-            alert("Please provide 'start' and 'end' query parameters.");
-            throw new Error("Missing required parameters");
+        // Get the row ID from the URL (if available)
+        const rowId = getUrlParameter('rowId');
+        if (rowId) {
+            console.log('Row ID from URL:', rowId);
+        } else {
+            console.log('No Row ID in URL');
         }
 
-        // Filter out duplicate stops based on coordinates (longitude, latitude)
-        const uniqueStops = stops.filter((value, index, self) => {
-            return index === self.findIndex((t) => (
-                t[0] === value[0] && t[1] === value[1]
-            ));
-        });
+        // Coordinates for the start, stops, and end (hardcoded or fetched dynamically)
+        const start = {lat: 34.201911, lng: -118.144167};
+        const stops = [
+            {lat: 34.2009957, lng: -118.1441991},
+            {lat: 34.200996, lng: -118.144199}
+        ];
+        const end = {lat: 34.1863704, lng: -118.1599249};
 
-        const route = [start, ...uniqueStops, end]; // Combine start, stops, and end locations
-
-        // Create the map
-        const map = new mapboxgl.Map({
-            container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11',
-            center: start,  // Center the map on the start coordinates
-            zoom: 14  // Adjust zoom for better visibility
-        });
-
-        map.on('load', () => {
-            // Add markers for Start and End locations
-            new mapboxgl.Marker({ color: 'green' })
-                .setLngLat(start)
-                .addTo(map)
-                .setPopup(new mapboxgl.Popup().setText("Start Location"));
-            
-            new mapboxgl.Marker({ color: 'red' })
-                .setLngLat(end)
-                .addTo(map)
-                .setPopup(new mapboxgl.Popup().setText("End Location"));
-
-            // Add markers for stops
-            stops.forEach((stop, index) => {
-                new mapboxgl.Marker({ color: 'blue' })
-                    .setLngLat(stop)
-                    .addTo(map)
-                    .setPopup(new mapboxgl.Popup().setText(`Stop ${index + 1}`));
+        // Initialize the map
+        function initMap() {
+            const map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 13,
+                center: start,
             });
 
-            // Draw the route
-            map.addSource('route', {
-                type: 'geojson',
-                data: {
-                    type: 'Feature',
-                    geometry: {
-                        type: 'LineString',
-                        coordinates: route
+            const directionsService = new google.maps.DirectionsService();
+            const directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+
+            // Convert stops into a route
+            const waypoints = stops.map(stop => ({
+                location: stop,
+                stopover: true
+            }));
+
+            const request = {
+                origin: start,
+                destination: end,
+                waypoints: waypoints,
+                travelMode: google.maps.TravelMode.DRIVING,
+            };
+
+            directionsService.route(request, (result, status) => {
+                if (status === google.maps.DirectionsStatus.OK) {
+                    directionsRenderer.setDirections(result);
+
+                    // Extract the distance and time
+                    const route = result.routes[0];
+                    const distance = route.legs.reduce((total, leg) => total + leg.distance.value, 0) / 1000; // In km
+                    const duration = route.legs.reduce((total, leg) => total + leg.duration.value, 0) / 60; // In minutes
+
+                    // Convert km to miles and minutes to hours
+                    const distanceMiles = (distance * 0.621371).toFixed(2); // Convert km to miles
+                    const durationHours = (duration / 60).toFixed(2); // Convert minutes to hours
+
+                    // Display the route details (either on the map or in Glide)
+                    console.log(`Distance: ${distanceMiles} miles`);
+                    console.log(`Estimated Time: ${durationHours} hours`);
+
+                    // Call the function to save the data back to Glide (if rowId is available)
+                    if (rowId) {
+                        sendDataToGlide(distanceMiles, durationHours, result.request.url);
                     }
+                } else {
+                    console.log("Directions request failed due to " + status);
                 }
             });
+        }
 
-            map.addLayer({
-                id: 'route',
-                type: 'line',
-                source: 'route',
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: { 'line-color': '#007cbf', 'line-width': 4 }
-            });
-
-            // Call Mapbox Directions API to calculate route distance
-            calculateRouteDistance(route);
-        });
-
-        // Function to calculate route distance using the Mapbox Directions API
-function calculateRouteDistance(route) {
-    const routeCoordinates = route.map(coord => coord.join(',')).join(';');
-
-    const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${routeCoordinates}?alternatives=false&geometries=geojson&steps=false&access_token=${mapboxgl.accessToken}`;
-
-    fetch(directionsUrl)
-        .then(response => response.json())
-        .then(data => {
-            const distance = data.routes[0].distance; // distance in meters
-            const distanceInMiles = (distance / 1609.34).toFixed(2); // Convert to miles
-            const duration = data.routes[0].duration; // duration in seconds
-            const durationInMinutes = (duration / 60).toFixed(0); // Convert to minutes
-
-            // Display the distance and time on the map
-            document.getElementById('route-info').innerHTML = `
-                <strong>Distance:</strong> ${distanceInMiles} miles<br>
-                <strong>Estimated Time:</strong> ${durationInMinutes} minutes
-            `;
-        })
-        .catch(error => {
-            console.error('Error calculating route distance:', error);
-            document.getElementById('route-info').innerHTML = 'Error calculating route distance.';
-        });
-}
+        // Initialize the map after the page loads
+        window.onload = initMap;
     </script>
 </body>
 </html>
