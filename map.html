@@ -127,11 +127,22 @@
                 });
         }
 
+        // Function to flip coordinates from [longitude, latitude] to [latitude, longitude]
+        function flipCoordinates(coord) {
+            return [coord[1], coord[0]];
+        }
+
         // Function to generate a single Google Maps link for the entire route
         function addGoogleMapsLink(start, stops, end) {
-            // Build the Google Maps URL with all locations (start, stops, and end)
-            const locations = [start, ...stops, end].map(coord => coord.join(',')).join('&waypoints=');
-            const googleMapsUrl = `https://www.google.com/maps/dir/${start.join(',')}/waypoints=${locations}`;
+            // Flip all coordinates to Google Maps format
+            const flippedStart = flipCoordinates(start);
+            const flippedStops = stops.map(flipCoordinates);
+            const flippedEnd = flipCoordinates(end);
+
+            // Combine all locations into the Google Maps URL
+            const googleMapsUrl = `https://www.google.com/maps/dir/${[flippedStart, ...flippedStops, flippedEnd]
+                .map(coord => coord.join(','))
+                .join('/')}`;
 
             // Display the Google Maps link
             document.getElementById('location-links').innerHTML = `
