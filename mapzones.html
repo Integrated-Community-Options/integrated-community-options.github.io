@@ -88,14 +88,16 @@
             const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
 
             if (staffCoordinatesParam) {
-                // Parse the staff coordinates (assume they are separated by semicolons)
-                const staffCoordinates = staffCoordinatesParam.split(';').map((coord, index) => {
-                    const parts = coord.split(',');
-                    const lat = parseFloat(parts[1]);  // Latitude is the second value
-                    const lon = parseFloat(parts[0]);  // Longitude is the first value
-                    const name = parts[2] ? parts[2].replace(/%20/g, ' ') : 'Unknown';  // Decode the name and handle possible empty fields
-                    return { lat, lon, name };
-                });
+                // Parse the staff coordinates (assume they are separated by semicolons and use pipe for coordinates and names)
+const staffCoordinates = staffCoordinatesParam.split(';').map((coord, index) => {
+    const parts = coord.split('|');
+    const latLon = parts[0].split(','); // First part is coordinates separated by a comma
+    const lat = parseFloat(latLon[1]);  // Latitude is the second value
+    const lon = parseFloat(latLon[0]);  // Longitude is the first value
+    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';  // Decode the name and handle possible empty fields
+    return { lat, lon, name };
+});
+
 
                 // Create a GeoJSON for staff locations
                 const staffGeoJSON = {
