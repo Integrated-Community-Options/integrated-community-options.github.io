@@ -28,16 +28,16 @@
         // Add zoom and rotation controls to the map
         map.addControl(new mapboxgl.NavigationControl());
 
-        // Zone data from KMeans clustering (Replace this with your actual zone data)
-        const zoneData = [
-            { lat: 34.07665376, lon: -117.84649169, zone: 0 },
-            { lat: 29.67068, lon: -98.490543, zone: 1 },
-            { lat: 36.0619, lon: -94.1613, zone: 2 },
-            { lat: 39.2230395, lon: -121.0677435, zone: 3 },
-            { lat: 34.15840488, lon: -118.30638538, zone: 4 },
-            { lat: 33.268785, lon: -115.9521081, zone: 5 },
-            { lat: 34.17027342, lon: -118.13992287, zone: 6 }
-        ];
+      // Zone data from KMeans clustering (Updated with new zone centers)
+const zoneData = [
+    { lat: 34.08621159, lon: -117.74553051, zone: 0 },
+    { lat: 34.17574353, lon: -118.14936753, zone: 1 },
+    { lat: 33.268785, lon: -115.9521081, zone: 2 },
+    { lat: 34.06722285, lon: -117.89017292, zone: 3 },
+    { lat: 34.21751133, lon: -118.34319733, zone: 4 },
+    { lat: 34.110079, lon: -118.01506738, zone: 5 },
+    { lat: 34.1077422, lon: -118.27483229, zone: 6 }
+];
 
         // Create a GeoJSON for the zones
         const zonesGeoJSON = {
