@@ -85,13 +85,16 @@
 
             // Get staff coordinates from the URL
             const urlParams = new URLSearchParams(window.location.search);
-            const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon pairs
+            const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
 
             if (staffCoordinatesParam) {
                 // Parse the staff coordinates (assume they are separated by semicolons)
                 const staffCoordinates = staffCoordinatesParam.split(';').map((coord, index) => {
-                    const [lat, lon, name] = coord.split(',');
-                    return { lat: parseFloat(lat), lon: parseFloat(lon), name: name.trim() };
+                    const parts = coord.split(',');
+                    const lat = parseFloat(parts[1]);  // Latitude is the second value
+                    const lon = parseFloat(parts[0]);  // Longitude is the first value
+                    const name = parts[2] ? parts[2].replace(/%20/g, ' ') : 'Unknown';  // Decode the name and handle possible empty fields
+                    return { lat, lon, name };
                 });
 
                 // Create a GeoJSON for staff locations
