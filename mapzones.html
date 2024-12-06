@@ -89,21 +89,62 @@
 
             if (staffCoordinatesParam) {
                 // Parse the staff coordinates (assume they are separated by semicolons and use pipe for coordinates and names)
-                const staffCoordinates = staffCoordinatesParam.split(';').map((coord, index) => {
+                const staffCoordinates = staffCoordinatesParam.split(';').map((coord) => {
                     const parts = coord.split('|');
-                    const latLon = parts[0].split(','); // First part is coordinates separated by a comma
-                    const lat = parseFloat(latLon[1]);  // Latitude is the second value
-                    const lon = parseFloat(latLon[0]);  // Longitude is the first value
-                    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';  // Decode the name and handle possible empty fields
-                    return { lat, lon, name };
+                    if (parts.length === 2) {
+                        const latLon = parts[0].split(',');
+                        if (latLon.length === 2) {
+                            const lat = parseFloat(latLon[1]);  // Latitude is the second value
+                            const lon = parseFloat(latLon[0]);  // Longitude is the first value
+                            const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';  // Decode the name and handle possible empty fields
+                            return { lat, lon, name };
+                        }
+                    }
+                    // If coordinates are missing or invalid, return null
+                    return null;
+                }).filter(staff => staff !== null);  // Remove invalid entries
+
+                // Create a GeoJSON for staff locations
+                const staffGeoJSON = {
+                    type: 'FeatureCollection',
+                    features: staffCoordinates.map((staff) => ({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Point',
+                            coordinates: [staff.lon, staff.lat] // Correct order: longitude first
+                        },
+                        properties: {
+                            name: staff.name
+                        }
+                    }))
+                };
+
+                // Add staff locations as a layer on the map
+                map.addSource('staff', {
+                    type: 'geojson',
+                    data: staffGeoJSON
                 });
 
-                // Add markers for staff locations
-                staffCoordinates.forEach((staff) => {
-                    new mapboxgl.Marker({ color: '#FF5733' }) // Set marker color for staff pins
-                        .setLngLat([staff.lon, staff.lat]) // Set the position (longitude, latitude)
-                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${staff.name}</strong>`)) // Popup with the staff name
-                        .addTo(map); // Add the marker to the map
+                map.addLayer({
+                    id: 'staff-layer',
+                    type: 'circle',
+                    source: 'staff',
+                    paint: {
+                        'circle-radius': 6,
+                        'circle-color': '#FF5733',
+                        'circle-opacity': 0.8
+                    }
+                });
+
+                // Add popups for staff markers with their names
+                staffGeoJSON.features.forEach((staff) => {
+                    const popup = new mapboxgl.Popup({ offset: 25 })
+                        .setHTML(`<strong>${staff.properties.name}</strong>`);
+
+                    new mapboxgl.Marker()
+                        .setLngLat([staff.lon, staff.lat]) // Correct order: longitude first
+                        .setPopup(popup)
+                        .addTo(map);
                 });
 
             } else {
