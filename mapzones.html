@@ -80,49 +80,88 @@
             return coords;
         }
 
-        // Function to check if the staff name should be left or right of the marker
-        function getMarkerPosition(index) {
-            return index % 2 === 0 ? 'left' : 'right'; // Alternates left and right
-        }
+        // Generate GeoJSON polygons for all zones
+        const zonesGeoJSON = {
+            type: 'FeatureCollection',
+            features: zoneData.map(zone => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'Polygon',
+                    coordinates: [createCircle({ lat: zone.lat, lon: zone.lon }, zoneRadiusMeters)]
+                },
+                properties: {
+                    zone: zone.zone
+                }
+            }))
+        };
 
         map.on('load', () => {
             // Add the zone polygons to the map
             map.addSource('zones', {
                 type: 'geojson',
-                data: zoneData.map(zone => ({
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Polygon',
-                        coordinates: [createCircle({ lat: zone.lat, lon: zone.lon }, zoneRadiusMeters)]
-                    },
-                    properties: {
-                        zone: zone.zone
-                    }
-                }))
+                data: zonesGeoJSON
             });
 
-            // Get staff coordinates and names from the URL
+            // Add a fill layer for the zones
+            map.addLayer({
+                id: 'zones-layer',
+                type: 'fill',
+                source: 'zones',
+                paint: {
+                    'fill-color': [
+                        'match',
+                        ['get', 'zone'],
+                        'Zone 0', '#ff0000',
+                        'Zone 1', '#00ff00',
+                        'Zone 2', '#0000ff',
+                        'Zone 3', '#ffff00',
+                        'Zone 4', '#ff00ff',
+                        'Zone 5', '#00ffff',
+                        'Zone 6', '#ff8000',
+                        '#888888' // Default color for unmatched zones
+                    ],
+
+                    'fill-opacity': 0.4
+                }
+            });
+
+            // Add zone labels
+            map.addLayer({
+                id: 'zones-labels',
+                type: 'symbol',
+                source: 'zones',
+                layout: {
+                    'text-field': ['get', 'zone'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 14,
+                    'text-anchor': 'center'
+                },
+                paint: {
+                    'text-color': '#000000'
+                }
+            });
+
+            // Get staff coordinates from the URL
             const urlParams = new URLSearchParams(window.location.search);
             const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
 
             if (staffCoordinatesParam) {
                 // Parse the staff coordinates (assume they are separated by semicolons and use pipe for coordinates and names)
-                const staffCoordinates = staffCoordinatesParam.split(';').map((coord, index) => {
+                const staffCoordinates = staffCoordinatesParam.split(';').map((coord) => {
                     const parts = coord.split('|');
                     const latLon = parts[0].split(','); // First part is coordinates separated by a comma
                     const lat = parseFloat(latLon[1]);  // Latitude is the second value
                     const lon = parseFloat(latLon[0]);  // Longitude is the first value
                     const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';  // Decode the name and handle possible empty fields
-                    const position = getMarkerPosition(index); // Determine left or right position based on index
-                    return { lat, lon, name, position };
+                    return { lat, lon, name };
                 });
 
-                // Add markers for each staff
-                staffCoordinates.forEach(staff => {
+                // Add markers for staff locations
+                staffCoordinates.forEach((staff) => {
                     const markerDiv = document.createElement('div');
                     markerDiv.className = 'staff-marker';
                     markerDiv.innerHTML = `
-                        <div class="name" style="text-align: ${staff.position};">${staff.name}</div>
+                        <div class="name">${staff.name}</div>
                         <div class="marker-icon"></div>
                     `;
 
