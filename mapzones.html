@@ -75,6 +75,7 @@
 
         // Use the minimum distance to determine the appropriate radius for the zone circles
         const maxRadius = minDistance / 2; // Adjust this value if needed to get the desired size
+        const adjustedRadius = maxRadius * 2; // Make the circles larger by multiplying the radius
 
         // Create a GeoJSON for the zones
         const zonesGeoJSON = {
@@ -103,7 +104,7 @@
                 type: 'circle',
                 source: 'zones',
                 paint: {
-                    'circle-radius': maxRadius, // Set dynamic radius based on minimum distance
+                    'circle-radius': adjustedRadius, // Use the adjusted radius for larger circles
                     'circle-color': [
                         'match',
                         ['get', 'zone'],
