@@ -8,26 +8,24 @@
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-        .staff-pin {
-            width: 30px; /* Adjust size of the pin */
-            height: 30px;
-            background-image: url("https://upload.wikimedia.org/wikipedia/commons/e/ed/Map_pin_icon.svg"); /* Pin icon URL */
-            background-size: contain;
-            background-repeat: no-repeat;
-            background-position: center;
-            position: relative;
+        .staff-marker {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
         }
-
-        /* Position the name to the right of the pin */
-        .staff-name {
-            position: absolute;
-            top: 0;
-            left: 35px; /* Distance from pin */
+        .staff-marker .name {
             font-size: 14px;
+            color: #3381ff;
             font-weight: bold;
-            color: #FF5733;
-            white-space: nowrap;
-            margin-top: -10px;
+            margin-bottom: 4px;
+        }
+        .staff-marker .marker-icon {
+            width: 15px;
+            height: 15px;
+            background-color: #3381ff;
+            border-radius: 50%;
+            border: 2px solid white;
         }
     </style>
 </head>
@@ -145,45 +143,30 @@
 
             // Get staff coordinates from the URL
             const urlParams = new URLSearchParams(window.location.search);
-            const staffCoordinatesParam = urlParams.get('staff_coordinates');
+            const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
 
             if (staffCoordinatesParam) {
-                // Parse the staff coordinates
+                // Parse the staff coordinates (assume they are separated by semicolons and use pipe for coordinates and names)
                 const staffCoordinates = staffCoordinatesParam.split(';').map((coord) => {
                     const parts = coord.split('|');
-                    const latLon = parts[0].split(',');
-                    const lat = parseFloat(latLon[1]);
-                    const lon = parseFloat(latLon[0]);
-                    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';
+                    const latLon = parts[0].split(','); // First part is coordinates separated by a comma
+                    const lat = parseFloat(latLon[1]);  // Latitude is the second value
+                    const lon = parseFloat(latLon[0]);  // Longitude is the first value
+                    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';  // Decode the name and handle possible empty fields
                     return { lat, lon, name };
                 });
 
-                // Group staff by their coordinates
-                const groupedStaff = {};
+                // Add markers for staff locations
                 staffCoordinates.forEach((staff) => {
-                    const key = `${staff.lat},${staff.lon}`; // Use lat,lon as key
-                    if (!groupedStaff[key]) {
-                        groupedStaff[key] = [];
-                    }
-                    groupedStaff[key].push(staff.name);
-                });
+                    const markerDiv = document.createElement('div');
+                    markerDiv.className = 'staff-marker';
+                    markerDiv.innerHTML = `
+                        <div class="name">${staff.name}</div>
+                        <div class="marker-icon"></div>
+                    `;
 
-                // Add markers for staff locations with pin icon and combined labels
-                Object.keys(groupedStaff).forEach((key) => {
-                    const [lat, lon] = key.split(',').map(Number);
-                    const names = groupedStaff[key].join(", "); // Combine staff names
-                    const markerElement = document.createElement('div');
-                    markerElement.className = 'staff-pin';
-
-                    // Add the combined staff name to the right of the pin
-                    const nameElement = document.createElement('div');
-                    nameElement.className = 'staff-name';
-                    nameElement.textContent = names;
-                    markerElement.appendChild(nameElement);
-
-                    // Create the marker and add it to the map
-                    new mapboxgl.Marker(markerElement)
-                        .setLngLat([lon, lat])
+                    new mapboxgl.Marker(markerDiv)
+                        .setLngLat([staff.lon, staff.lat])
                         .addTo(map);
                 });
 
