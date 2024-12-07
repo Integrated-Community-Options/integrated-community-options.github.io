@@ -15,20 +15,20 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
     <script>
         // Set up your Mapbox token
-        mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA'; // Replace with your Mapbox token
+        mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA';
 
         // Initialize the Mapbox map
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11', // You can choose another Mapbox style
-            center: [-118.2468, 34.0522], // Coordinates for the initial map view (center of LA)
+            style: 'mapbox://styles/mapbox/streets-v11',
+            center: [-118.2468, 34.0522], // Coordinates for LA
             zoom: 10
         });
 
         // Add zoom and rotation controls to the map
         map.addControl(new mapboxgl.NavigationControl());
 
-        // Function to calculate the distance between two lat/lon points using Haversine formula
+        // Function to calculate the distance between two lat/lon points
         function haversine(lat1, lon1, lat2, lon2) {
             const R = 6371; // Radius of the Earth in km
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -37,11 +37,10 @@
                       Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
                       Math.sin(dLon / 2) * Math.sin(dLon / 2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distance = R * c; // Distance in km
-            return distance;
+            return R * c;
         }
 
-        // Calculate the closest distance between any two zones
+        // Calculate the closest distance between zones
         function calculateMinDistance(zones) {
             let minDistance = Infinity;
 
@@ -59,32 +58,30 @@
             return minDistance;
         }
 
-        // Updated zone data from KMeans clustering
+        // Zone data
         const zoneData = [
-            { lat: 34.08875342, lon: -117.75989543, zone: 0 }, // Zone 0
-            { lat: 34.17939374, lon: -118.15038961, zone: 1 }, // Zone 1
-            { lat: 33.987361, lon: -117.8536475, zone: 2 },    // Zone 2
-            { lat: 34.1995075, lon: -118.4779325, zone: 3 },   // Zone 3
-            { lat: 34.1485262, lon: -118.27352875, zone: 4 },  // Zone 4
-            { lat: 34.12673083, lon: -118.07720367, zone: 5 }, // Zone 5
-            { lat: 34.08010269, lon: -117.93141915, zone: 6 }  // Zone 6
+            { lat: 34.08875342, lon: -117.75989543, zone: 0 },
+            { lat: 34.17939374, lon: -118.15038961, zone: 1 },
+            { lat: 33.987361, lon: -117.8536475, zone: 2 },
+            { lat: 34.1995075, lon: -118.4779325, zone: 3 },
+            { lat: 34.1485262, lon: -118.27352875, zone: 4 },
+            { lat: 34.12673083, lon: -118.07720367, zone: 5 },
+            { lat: 34.08010269, lon: -117.93141915, zone: 6 }
         ];
 
-        // Calculate the minimum distance between zones
+        // Calculate the minimum distance and determine adjusted radius
         const minDistance = calculateMinDistance(zoneData);
+        const maxRadius = minDistance / 5;
+        const adjustedRadius = maxRadius * 25;
 
-        // Use the minimum distance to determine the appropriate radius for the zone circles
-        const maxRadius = minDistance / 5; // Adjust this value if needed to get the desired size
-        const adjustedRadius = maxRadius * 25; // Make the circles larger by multiplying the radius
-
-        // Create a GeoJSON for the zones
+        // GeoJSON for zones
         const zonesGeoJSON = {
             type: 'FeatureCollection',
-            features: zoneData.map((zone) => ({
+            features: zoneData.map(zone => ({
                 type: 'Feature',
                 geometry: {
                     type: 'Point',
-                    coordinates: [zone.lon, zone.lat] // Correct order: longitude first
+                    coordinates: [zone.lon, zone.lat]
                 },
                 properties: {
                     zone: zone.zone
@@ -92,7 +89,7 @@
             }))
         };
 
-        // Add zones as a layer on the map
+        // Add zones to the map
         map.on('load', () => {
             map.addSource('zones', {
                 type: 'geojson',
@@ -100,56 +97,53 @@
             });
 
             map.addLayer({
-    id: 'zones-layer',
-    type: 'circle',
-    source: 'zones',
-    paint: {
-        'circle-radius': {
-            'stops': [
-                [0, maxRadius * 2],   // Larger size at lower zoom levels
-                [22, maxRadius / 2]   // Smaller size at higher zoom levels
-            ]
-        },
-        'circle-color': [
-            'match',
-            ['get', 'zone'],
-            0, '#ff0000',
-            1, '#00ff00',
-            2, '#0000ff',
-            3, '#ffff00',
-            4, '#ff00ff',
-            5, '#00ffff',
-            6, '#ff8000',
-            '#888888' // Default color for undefined zones
-        ],
-        'circle-opacity': 0.4
-    }
-});
+                id: 'zones-layer',
+                type: 'circle',
+                source: 'zones',
+                paint: {
+                    'circle-radius': {
+                        'stops': [
+                            [10, adjustedRadius * 0.5], // At zoom 10
+                            [12, adjustedRadius],      // At zoom 12
+                            [14, adjustedRadius * 1.5] // At zoom 14
+                        ]
+                    },
+                    'circle-color': [
+                        'match',
+                        ['get', 'zone'],
+                        0, '#ff0000',
+                        1, '#00ff00',
+                        2, '#0000ff',
+                        3, '#ffff00',
+                        4, '#ff00ff',
+                        5, '#00ffff',
+                        6, '#ff8000',
+                        '#888888' // Default color
+                    ],
+                    'circle-opacity': 0.4
+                }
+            });
 
-
-            // Get staff coordinates from the URL
+            // Staff coordinates from URL
             const urlParams = new URLSearchParams(window.location.search);
-            const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
+            const staffCoordinatesParam = urlParams.get('staff_coordinates');
 
             if (staffCoordinatesParam) {
-                // Parse the staff coordinates (assume they are separated by semicolons and use pipe for coordinates and names)
-                const staffCoordinates = staffCoordinatesParam.split(';').map((coord, index) => {
+                const staffCoordinates = staffCoordinatesParam.split(';').map(coord => {
                     const parts = coord.split('|');
-                    const latLon = parts[0].split(','); // First part is coordinates separated by a comma
-                    const lat = parseFloat(latLon[1]);  // Latitude is the second value
-                    const lon = parseFloat(latLon[0]);  // Longitude is the first value
-                    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';  // Decode the name and handle possible empty fields
+                    const latLon = parts[0].split(',');
+                    const lat = parseFloat(latLon[1]);
+                    const lon = parseFloat(latLon[0]);
+                    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';
                     return { lat, lon, name };
                 });
 
-                // Add markers for staff locations
-                staffCoordinates.forEach((staff) => {
-                    new mapboxgl.Marker({ color: '#FF5733' }) // Set marker color for staff pins
-                        .setLngLat([staff.lon, staff.lat]) // Set the position (longitude, latitude)
-                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${staff.name}</strong>`)) // Popup with the staff name
-                        .addTo(map); // Add the marker to the map
+                staffCoordinates.forEach(staff => {
+                    new mapboxgl.Marker({ color: '#FF5733' })
+                        .setLngLat([staff.lon, staff.lat])
+                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${staff.name}</strong>`))
+                        .addTo(map);
                 });
-
             } else {
                 console.log("No staff coordinates found in the URL.");
             }
