@@ -28,8 +28,8 @@
         // Add zoom and rotation controls to the map
         map.addControl(new mapboxgl.NavigationControl());
 
-        // Set a fixed 7-mile radius in pixels
-        const fixedRadiusPixels = 100; // Adjust this number based on your map zoom level and desired circle size
+        // Set a fixed 100 meter radius for the zones (in meters, fixed size)
+        const fixedRadiusMeters = 11265.4; // Adjust this number based on your needs
 
         // Updated zone data from KMeans clustering
         const zoneData = [
@@ -65,13 +65,13 @@
                 data: zonesGeoJSON
             });
 
-            // Add a circle layer for the zones
+            // Add a circle layer for the zones with fixed size in meters
             map.addLayer({
                 id: 'zones-layer',
                 type: 'circle',
                 source: 'zones',
                 paint: {
-                    'circle-radius': fixedRadiusPixels, // Use fixed radius in pixels
+                    'circle-radius': fixedRadiusMeters, // Use fixed radius in meters
                     'circle-color': [
                         'match',
                         ['get', 'zone'],
