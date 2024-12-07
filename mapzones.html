@@ -14,76 +14,107 @@
     <div id="map"></div>
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.10.0/mapbox-gl.js"></script>
     <script>
+        // Set up your Mapbox token
         mapboxgl.accessToken = 'pk.eyJ1Ijoib21hcmZpbmxleSIsImEiOiJjbTQ5MzBkbXMwNjlsMmpvbGtrNGpxYnF0In0.7zAj2YRadqPWPsQlavnfYA'; // Replace with your Mapbox token
 
+        // Initialize the Mapbox map
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11', 
-            center: [-118.2468, 34.0522], 
+            style: 'mapbox://styles/mapbox/streets-v11', // You can choose another Mapbox style
+            center: [-118.2468, 34.0522], // Coordinates for the initial map view (center of LA)
             zoom: 10
         });
 
+        // Add zoom and rotation controls to the map
         map.addControl(new mapboxgl.NavigationControl());
 
+        // Set a fixed 100 meter radius for the zones (in meters, fixed size)
+        const fixedRadiusMeters = 150; // Adjust this number based on your needs
+
+        // Updated zone data from KMeans clustering
         const zoneData = [
-            { lat: 34.08875342, lon: -117.75989543, zone: 0 }, 
-            { lat: 34.17939374, lon: -118.15038961, zone: 1 }, 
-            { lat: 33.987361, lon: -117.8536475, zone: 2 },    
-            { lat: 34.1995075, lon: -118.4779325, zone: 3 },   
-            { lat: 34.1485262, lon: -118.27352875, zone: 4 },  
-            { lat: 34.12673083, lon: -118.07720367, zone: 5 }, 
-            { lat: 34.08010269, lon: -117.93141915, zone: 6 }
+            { lat: 34.08875342, lon: -117.75989543, zone: 0 }, // Zone 0
+            { lat: 34.17939374, lon: -118.15038961, zone: 1 }, // Zone 1
+            { lat: 33.987361, lon: -117.8536475, zone: 2 },    // Zone 2
+            { lat: 34.1995075, lon: -118.4779325, zone: 3 },   // Zone 3
+            { lat: 34.1485262, lon: -118.27352875, zone: 4 },  // Zone 4
+            { lat: 34.12673083, lon: -118.07720367, zone: 5 }, // Zone 5
+            { lat: 34.08010269, lon: -117.93141915, zone: 6 }  // Zone 6
         ];
 
-        // Custom function to draw circles as fixed SVG paths
-        function addCustomCircle(map, lat, lon, radius, color) {
+        // Create a GeoJSON for the zones
+        const zonesGeoJSON = {
+            type: 'FeatureCollection',
+            features: zoneData.map((zone) => ({
+                type: 'Feature',
+                geometry: {
+                    type: 'Point',
+                    coordinates: [zone.lon, zone.lat] // Correct order: longitude first
+                },
+                properties: {
+                    zone: zone.zone
+                }
+            }))
+        };
+
+        // Add zones as a layer on the map
+        map.on('load', () => {
+            // Add the source for the zones
+            map.addSource('zones', {
+                type: 'geojson',
+                data: zonesGeoJSON
+            });
+
+            // Add a circle layer for the zones with fixed size in meters
             map.addLayer({
-                id: `zone-${lat}-${lon}`,
-                type: 'symbol',
-                source: {
-                    type: 'geojson',
-                    data: {
-                        type: 'FeatureCollection',
-                        features: [{
-                            type: 'Feature',
-                            geometry: {
-                                type: 'Point',
-                                coordinates: [lon, lat]
-                            }
-                        }]
-                    }
-                },
-                layout: {
-                    'icon-image': 'circle-15', // Built-in icon for a fixed circle
-                    'icon-size': 1, // Custom size for the circle icon
-                },
+                id: 'zones-layer',
+                type: 'circle',
+                source: 'zones',
                 paint: {
-                    'icon-color': color, // Custom color based on zone
+                    'circle-radius': fixedRadiusMeters, // Use fixed radius in meters
+                    'circle-color': [
+                        'match',
+                        ['get', 'zone'],
+                        0, '#ff0000',
+                        1, '#00ff00',
+                        2, '#0000ff',
+                        3, '#ffff00',
+                        4, '#ff00ff',
+                        5, '#00ffff',
+                        6, '#ff8000',
+                        '#888888'
+                    ],
+                    'circle-opacity': 0.4
                 }
             });
-        }
 
-        map.on('load', () => {
-            zoneData.forEach(zone => {
-                // Adding the zones as fixed size SVG paths
-                addCustomCircle(map, zone.lat, zone.lon, 500, getColorForZone(zone.zone));
-            });
-        });
+            // Get staff coordinates from the URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
 
-        // Helper function to assign a color based on the zone
-        function getColorForZone(zone) {
-            switch(zone) {
-                case 0: return '#ff0000';
-                case 1: return '#00ff00';
-                case 2: return '#0000ff';
-                case 3: return '#ffff00';
-                case 4: return '#ff00ff';
-                case 5: return '#00ffff';
-                case 6: return '#ff8000';
-                default: return '#888888';
+            if (staffCoordinatesParam) {
+                // Parse the staff coordinates (assume they are separated by semicolons and use pipe for coordinates and names)
+                const staffCoordinates = staffCoordinatesParam.split(';').map((coord) => {
+                    const parts = coord.split('|');
+                    const latLon = parts[0].split(','); // First part is coordinates separated by a comma
+                    const lat = parseFloat(latLon[1]);  // Latitude is the second value
+                    const lon = parseFloat(latLon[0]);  // Longitude is the first value
+                    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';  // Decode the name and handle possible empty fields
+                    return { lat, lon, name };
+                });
+
+                // Add markers for staff locations
+                staffCoordinates.forEach((staff) => {
+                    new mapboxgl.Marker({ color: '#FF5733' }) // Set marker color for staff pins
+                        .setLngLat([staff.lon, staff.lat]) // Set the position (longitude, latitude)
+                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${staff.name}</strong>`)) // Popup with the staff name
+                        .addTo(map); // Add the marker to the map
+                });
+
+            } else {
+                console.log("No staff coordinates found in the URL.");
             }
-        }
-
+        });
     </script>
 </body>
 </html>
