@@ -37,7 +37,7 @@
         ];
 
         // Radius for the zones in meters
-        const zoneRadiusMeters = 10000; // 10 km radius
+        const zoneRadiusMeters = 8046.72; // 8 km  or 5 miles radius
 
         // Function to create a circular polygon
         function createCircle(center, radius, points = 64) {
@@ -102,17 +102,6 @@
                         '#888888'
                     ],
                     'fill-opacity': 0.4
-                }
-            });
-
-            // Add an outline to the polygons
-            map.addLayer({
-                id: 'zones-outline',
-                type: 'line',
-                source: 'zones',
-                paint: {
-                    'line-color': '#000000',
-                    'line-width': 2
                 }
             });
 
