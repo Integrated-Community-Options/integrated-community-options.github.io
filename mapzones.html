@@ -8,6 +8,25 @@
     <style>
         body { margin: 0; padding: 0; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        .staff-marker {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+        .staff-marker .name {
+            font-size: 12px;
+            color: #FF5733;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .staff-marker .marker-icon {
+            width: 12px;
+            height: 12px;
+            background-color: #FF5733;
+            border-radius: 50%;
+            border: 2px solid white;
+        }
     </style>
 </head>
 <body>
@@ -27,17 +46,17 @@
 
         // Zone data from KMeans clustering (example data)
         const zoneData = [
-            { lat: 34.08875342, lon: -117.75989543, zone: 0 },
-            { lat: 34.17939374, lon: -118.15038961, zone: 1 },
-            { lat: 33.987361, lon: -117.8536475, zone: 2 },
-            { lat: 34.1995075, lon: -118.4779325, zone: 3 },
-            { lat: 34.1485262, lon: -118.27352875, zone: 4 },
-            { lat: 34.12673083, lon: -118.07720367, zone: 5 },
-            { lat: 34.08010269, lon: -117.93141915, zone: 6 }
+            { lat: 34.08875342, lon: -117.75989543, zone: 'Zone 0' },
+            { lat: 34.17939374, lon: -118.15038961, zone: 'Zone 1' },
+            { lat: 33.987361, lon: -117.8536475, zone: 'Zone 2' },
+            { lat: 34.1995075, lon: -118.4779325, zone: 'Zone 3' },
+            { lat: 34.1485262, lon: -118.27352875, zone: 'Zone 4' },
+            { lat: 34.12673083, lon: -118.07720367, zone: 'Zone 5' },
+            { lat: 34.08010269, lon: -117.93141915, zone: 'Zone 6' }
         ];
 
         // Radius for the zones in meters
-        const zoneRadiusMeters = 8046.72; // 8 km  or 5 miles radius
+        const zoneRadiusMeters = 8046.72; // 5 mile radius
 
         // Function to create a circular polygon
         function createCircle(center, radius, points = 64) {
@@ -89,19 +108,24 @@
                 type: 'fill',
                 source: 'zones',
                 paint: {
-                    'fill-color': [
-                        'match',
-                        ['get', 'zone'],
-                        0, '#ff0000',
-                        1, '#00ff00',
-                        2, '#0000ff',
-                        3, '#ffff00',
-                        4, '#ff00ff',
-                        5, '#00ffff',
-                        6, '#ff8000',
-                        '#888888'
-                    ],
+                    'fill-color': '#8888ff',
                     'fill-opacity': 0.4
+                }
+            });
+
+            // Add zone labels
+            map.addLayer({
+                id: 'zones-labels',
+                type: 'symbol',
+                source: 'zones',
+                layout: {
+                    'text-field': ['get', 'zone'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 14,
+                    'text-anchor': 'center'
+                },
+                paint: {
+                    'text-color': '#000000'
                 }
             });
 
@@ -122,10 +146,16 @@
 
                 // Add markers for staff locations
                 staffCoordinates.forEach((staff) => {
-                    new mapboxgl.Marker({ color: '#FF5733' }) // Set marker color for staff pins
-                        .setLngLat([staff.lon, staff.lat]) // Set the position (longitude, latitude)
-                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${staff.name}</strong>`)) // Popup with the staff name
-                        .addTo(map); // Add the marker to the map
+                    const markerDiv = document.createElement('div');
+                    markerDiv.className = 'staff-marker';
+                    markerDiv.innerHTML = `
+                        <div class="name">${staff.name}</div>
+                        <div class="marker-icon"></div>
+                    `;
+
+                    new mapboxgl.Marker(markerDiv)
+                        .setLngLat([staff.lon, staff.lat])
+                        .addTo(map);
                 });
 
             } else {
