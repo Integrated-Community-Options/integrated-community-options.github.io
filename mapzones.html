@@ -129,16 +129,57 @@
             // Add the zone polygons to the map
             map.addSource('zones', {
                 type: 'geojson',
-                data: zoneData.map(zone => ({
-                    type: 'Feature',
-                    geometry: {
-                        type: 'Polygon',
-                        coordinates: [createCircle({ lat: zone.lat, lon: zone.lon }, zoneRadiusMeters)]
-                    },
-                    properties: {
-                        zone: zone.zone
-                    }
-                }))
+                data: {
+                    type: 'FeatureCollection',
+                    features: zoneData.map(zone => ({
+                        type: 'Feature',
+                        geometry: {
+                            type: 'Polygon',
+                            coordinates: [createCircle({ lat: zone.lat, lon: zone.lon }, zoneRadiusMeters)]
+                        },
+                        properties: {
+                            zone: zone.zone
+                        }
+                    }))
+                }
+            });
+
+            // Add a fill layer for the zones with specific colors
+            map.addLayer({
+                id: 'zones-layer',
+                type: 'fill',
+                source: 'zones',
+                paint: {
+                    'fill-color': [
+                        'match',
+                        ['get', 'zone'],
+                        'Zone 0', '#ff0000',
+                        'Zone 1', '#00ff00',
+                        'Zone 2', '#0000ff',
+                        'Zone 3', '#ffff00',
+                        'Zone 4', '#ff00ff',
+                        'Zone 5', '#00ffff',
+                        'Zone 6', '#ff8000',
+                        '#888888' // Default color for unmatched zones
+                    ],
+                    'fill-opacity': 0.4
+                }
+            });
+
+            // Add zone labels
+            map.addLayer({
+                id: 'zones-labels',
+                type: 'symbol',
+                source: 'zones',
+                layout: {
+                    'text-field': ['get', 'zone'],
+                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
+                    'text-size': 14,
+                    'text-anchor': 'center'
+                },
+                paint: {
+                    'text-color': '#000000'
+                }
             });
 
             // Add staff markers
@@ -168,13 +209,10 @@
                         <div class="marker-icon"></div>
                     `;
 
-                    new mapboxgl.Marker(markerDiv)
+                    const marker = new mapboxgl.Marker(markerDiv)
                         .setLngLat([group[0].lon, group[0].lat])
                         .addTo(map);
                 });
-
-            } else {
-                console.log("No staff coordinates found in the URL.");
             }
         });
     </script>
