@@ -28,36 +28,18 @@
         // Add zoom and rotation controls to the map
         map.addControl(new mapboxgl.NavigationControl());
 
-        // Function to calculate the distance between two lat/lon points using Haversine formula
-        function haversine(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Radius of the Earth in km
-            const dLat = (lat2 - lat1) * Math.PI / 180;
-            const dLon = (lon2 - lon1) * Math.PI / 180;
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            const distance = R * c; // Distance in km
-            return distance;
+        // Convert miles to pixels at the current zoom level
+        function milesToPixels(miles, zoomLevel) {
+            const scale = map.getZoomScale(zoomLevel, 10); // Scale factor for zoom level
+            const metersPerPixel = 40008000 / (256 * scale); // Meters per pixel at zoom level
+            const meters = miles * 1609.34; // Convert miles to meters
+            return meters / metersPerPixel; // Return the radius in pixels
         }
 
-        // Calculate the closest distance between any two zones
-        function calculateMinDistance(zones) {
-            let minDistance = Infinity;
+        // Set a fixed 7-mile radius
+        const fixedRadiusMiles = 7;
+        const radiusInPixels = milesToPixels(fixedRadiusMiles, map.getZoom());
 
-            for (let i = 0; i < zones.length; i++) {
-                for (let j = i + 1; j < zones.length; j++) {
-                    const zoneA = zones[i];
-                    const zoneB = zones[j];
-                    const distance = haversine(zoneA.lat, zoneA.lon, zoneB.lat, zoneB.lon);
-                    if (distance < minDistance) {
-                        minDistance = distance;
-                    }
-                }
-            }
-
-            return minDistance;
-        }
 
         // Updated zone data from KMeans clustering
         const zoneData = [
@@ -69,13 +51,6 @@
             { lat: 34.12673083, lon: -118.07720367, zone: 5 }, // Zone 5
             { lat: 34.08010269, lon: -117.93141915, zone: 6 }  // Zone 6
         ];
-
-        // Calculate the minimum distance between zones
-        const minDistance = calculateMinDistance(zoneData);
-
-        // Use the minimum distance to determine the appropriate radius for the zone circles
-        const maxRadius = minDistance / 5; // Adjust this value if needed to get the desired size
-        const adjustedRadius = maxRadius * 45; // Make the circles larger by multiplying the radius
 
         // Create a GeoJSON for the zones
         const zonesGeoJSON = {
@@ -104,7 +79,7 @@
                 type: 'circle',
                 source: 'zones',
                 paint: {
-                    'circle-radius': adjustedRadius, // Use the adjusted radius for larger circles
+                    'circle-radius': radiusInPixels, // Use fixed radius in pixels
                     'circle-color': [
                         'match',
                         ['get', 'zone'],
@@ -115,11 +90,12 @@
                         4, '#ff00ff',
                         5, '#00ffff',
                         6, '#ff8000',
-                        '#888888' // Default color for undefined zones
+                        '#888888'
                     ],
                     'circle-opacity': 0.4
                 }
             });
+
 
             // Get staff coordinates from the URL
             const urlParams = new URLSearchParams(window.location.search);
