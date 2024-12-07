@@ -20,7 +20,7 @@
         // Initialize the Mapbox map
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11', // You can choose another Mapbox style
+            style: 'mapbox://styles/mapbox/streets-v11',
             center: [-118.2468, 34.0522], // Coordinates for the initial map view (center of LA)
             zoom: 10
         });
@@ -28,18 +28,27 @@
         // Add zoom and rotation controls to the map
         map.addControl(new mapboxgl.NavigationControl());
 
-        // Set the fixed radius for the zone circles (7 miles = 11,265 meters)
-        const fixedRadius = 11265; // Set the circle radius in meters (7 miles)
+        // Convert miles to pixels at the current zoom level
+        function milesToPixels(miles, zoomLevel) {
+            const scale = map.getZoomScale(zoomLevel, 10); // Scale factor for zoom level
+            const metersPerPixel = 40008000 / (256 * scale); // Meters per pixel at zoom level
+            const meters = miles * 1609.34; // Convert miles to meters
+            return meters / metersPerPixel; // Return the radius in pixels
+        }
 
-        // Updated zone data from KMeans clustering
+        // Set a fixed 7-mile radius
+        const fixedRadiusMiles = 7;
+        const radiusInPixels = milesToPixels(fixedRadiusMiles, map.getZoom());
+
+        // Zone data from KMeans clustering
         const zoneData = [
-            { lat: 34.08875342, lon: -117.75989543, zone: 0 }, // Zone 0
-            { lat: 34.17939374, lon: -118.15038961, zone: 1 }, // Zone 1
-            { lat: 33.987361, lon: -117.8536475, zone: 2 },    // Zone 2
-            { lat: 34.1995075, lon: -118.4779325, zone: 3 },   // Zone 3
-            { lat: 34.1485262, lon: -118.27352875, zone: 4 },  // Zone 4
-            { lat: 34.12673083, lon: -118.07720367, zone: 5 }, // Zone 5
-            { lat: 34.08010269, lon: -117.93141915, zone: 6 }  // Zone 6
+            { lat: 34.08875342, lon: -117.75989543, zone: 0 },
+            { lat: 34.17939374, lon: -118.15038961, zone: 1 },
+            { lat: 33.987361, lon: -117.8536475, zone: 2 },
+            { lat: 34.1995075, lon: -118.4779325, zone: 3 },
+            { lat: 34.1485262, lon: -118.27352875, zone: 4 },
+            { lat: 34.12673083, lon: -118.07720367, zone: 5 },
+            { lat: 34.08010269, lon: -117.93141915, zone: 6 }
         ];
 
         // Create a GeoJSON for the zones
@@ -49,7 +58,7 @@
                 type: 'Feature',
                 geometry: {
                     type: 'Point',
-                    coordinates: [zone.lon, zone.lat] // Correct order: longitude first
+                    coordinates: [zone.lon, zone.lat]
                 },
                 properties: {
                     zone: zone.zone
@@ -69,7 +78,7 @@
                 type: 'circle',
                 source: 'zones',
                 paint: {
-                    'circle-radius': fixedRadius, // Use the fixed radius for the circles
+                    'circle-radius': radiusInPixels, // Use fixed radius in pixels
                     'circle-color': [
                         'match',
                         ['get', 'zone'],
@@ -80,7 +89,7 @@
                         4, '#ff00ff',
                         5, '#00ffff',
                         6, '#ff8000',
-                        '#888888' // Default color for undefined zones
+                        '#888888'
                     ],
                     'circle-opacity': 0.4
                 }
@@ -88,25 +97,23 @@
 
             // Get staff coordinates from the URL
             const urlParams = new URLSearchParams(window.location.search);
-            const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
+            const staffCoordinatesParam = urlParams.get('staff_coordinates');
 
             if (staffCoordinatesParam) {
-                // Parse the staff coordinates (assume they are separated by semicolons and use pipe for coordinates and names)
                 const staffCoordinates = staffCoordinatesParam.split(';').map((coord, index) => {
                     const parts = coord.split('|');
-                    const latLon = parts[0].split(','); // First part is coordinates separated by a comma
-                    const lat = parseFloat(latLon[1]);  // Latitude is the second value
-                    const lon = parseFloat(latLon[0]);  // Longitude is the first value
-                    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';  // Decode the name and handle possible empty fields
+                    const latLon = parts[0].split(',');
+                    const lat = parseFloat(latLon[1]);
+                    const lon = parseFloat(latLon[0]);
+                    const name = parts[1] ? decodeURIComponent(parts[1]) : 'Unknown';
                     return { lat, lon, name };
                 });
 
-                // Add markers for staff locations
                 staffCoordinates.forEach((staff) => {
-                    new mapboxgl.Marker({ color: '#FF5733' }) // Set marker color for staff pins
-                        .setLngLat([staff.lon, staff.lat]) // Set the position (longitude, latitude)
-                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${staff.name}</strong>`)) // Popup with the staff name
-                        .addTo(map); // Add the marker to the map
+                    new mapboxgl.Marker({ color: '#FF5733' })
+                        .setLngLat([staff.lon, staff.lat])
+                        .setPopup(new mapboxgl.Popup().setHTML(`<strong>${staff.name}</strong>`))
+                        .addTo(map);
                 });
 
             } else {
