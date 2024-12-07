@@ -58,6 +58,9 @@
         // Radius for the zones in meters
         const zoneRadiusMeters = 8046.72; // 5 mile radius
 
+        // Proximity threshold in meters to group staff
+        const proximityThreshold = 50; // 50 meters
+
         // Function to create a circular polygon
         function createCircle(center, radius, points = 64) {
             const coords = [];
@@ -80,68 +83,65 @@
             return coords;
         }
 
-        // Generate GeoJSON polygons for all zones
-        const zonesGeoJSON = {
-            type: 'FeatureCollection',
-            features: zoneData.map(zone => ({
-                type: 'Feature',
-                geometry: {
-                    type: 'Polygon',
-                    coordinates: [createCircle({ lat: zone.lat, lon: zone.lon }, zoneRadiusMeters)]
-                },
-                properties: {
-                    zone: zone.zone
+        // Function to calculate distance between two coordinates (in meters)
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+                Math.cos(φ1) * Math.cos(φ2) *
+                Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c; // Return distance in meters
+        }
+
+        // Group staff by proximity
+        function groupStaffByProximity(staffCoordinates) {
+            const groupedStaff = [];
+
+            staffCoordinates.forEach(staff => {
+                let grouped = false;
+
+                // Check if the staff is within proximity of any existing group
+                for (let group of groupedStaff) {
+                    const distance = getDistance(staff.lat, staff.lon, group[0].lat, group[0].lon);
+                    if (distance <= proximityThreshold) {
+                        group.push(staff);
+                        grouped = true;
+                        break;
+                    }
                 }
-            }))
-        };
+
+                // If not grouped, create a new group
+                if (!grouped) {
+                    groupedStaff.push([staff]);
+                }
+            });
+
+            return groupedStaff;
+        }
 
         map.on('load', () => {
             // Add the zone polygons to the map
             map.addSource('zones', {
                 type: 'geojson',
-                data: zonesGeoJSON
+                data: zoneData.map(zone => ({
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Polygon',
+                        coordinates: [createCircle({ lat: zone.lat, lon: zone.lon }, zoneRadiusMeters)]
+                    },
+                    properties: {
+                        zone: zone.zone
+                    }
+                }))
             });
 
-            // Add a fill layer for the zones
-            map.addLayer({
-                id: 'zones-layer',
-                type: 'fill',
-                source: 'zones',
-                paint: {
-                    'fill-color': [
-                        'match',
-                        ['get', 'zone'],
-                        'Zone 0', '#ff0000',
-                        'Zone 1', '#00ff00',
-                        'Zone 2', '#0000ff',
-                        'Zone 3', '#ffff00',
-                        'Zone 4', '#ff00ff',
-                        'Zone 5', '#00ffff',
-                        'Zone 6', '#ff8000',
-                        '#888888' // Default color for unmatched zones
-                    ],
-
-                    'fill-opacity': 0.4
-                }
-            });
-
-            // Add zone labels
-            map.addLayer({
-                id: 'zones-labels',
-                type: 'symbol',
-                source: 'zones',
-                layout: {
-                    'text-field': ['get', 'zone'],
-                    'text-font': ['Open Sans Bold', 'Arial Unicode MS Bold'],
-                    'text-size': 14,
-                    'text-anchor': 'center'
-                },
-                paint: {
-                    'text-color': '#000000'
-                }
-            });
-
-            // Get staff coordinates from the URL
+            // Add staff markers
             const urlParams = new URLSearchParams(window.location.search);
             const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
 
@@ -156,17 +156,20 @@
                     return { lat, lon, name };
                 });
 
-                // Add markers for staff locations
-                staffCoordinates.forEach((staff) => {
+                // Group staff by proximity
+                const groupedStaff = groupStaffByProximity(staffCoordinates);
+
+                // Add markers for grouped staff
+                groupedStaff.forEach(group => {
                     const markerDiv = document.createElement('div');
                     markerDiv.className = 'staff-marker';
                     markerDiv.innerHTML = `
-                        <div class="name">${staff.name}</div>
+                        <div class="name">${group.map(staff => staff.name).join(', ')}</div>
                         <div class="marker-icon"></div>
                     `;
 
                     new mapboxgl.Marker(markerDiv)
-                        .setLngLat([staff.lon, staff.lat])
+                        .setLngLat([group[0].lon, group[0].lat])
                         .addTo(map);
                 });
 
