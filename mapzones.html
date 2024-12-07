@@ -100,26 +100,32 @@
             });
 
             map.addLayer({
-                id: 'zones-layer',
-                type: 'circle',
-                source: 'zones',
-                paint: {
-                    'circle-radius': adjustedRadius, // Use the adjusted radius for larger circles
-                    'circle-color': [
-                        'match',
-                        ['get', 'zone'],
-                        0, '#ff0000',
-                        1, '#00ff00',
-                        2, '#0000ff',
-                        3, '#ffff00',
-                        4, '#ff00ff',
-                        5, '#00ffff',
-                        6, '#ff8000',
-                        '#888888' // Default color for undefined zones
-                    ],
-                    'circle-opacity': 0.4
-                }
-            });
+    id: 'zones-layer',
+    type: 'circle',
+    source: 'zones',
+    paint: {
+        'circle-radius': {
+            'stops': [
+                [0, maxRadius * 2],   // Larger size at lower zoom levels
+                [22, maxRadius / 2]   // Smaller size at higher zoom levels
+            ]
+        },
+        'circle-color': [
+            'match',
+            ['get', 'zone'],
+            0, '#ff0000',
+            1, '#00ff00',
+            2, '#0000ff',
+            3, '#ffff00',
+            4, '#ff00ff',
+            5, '#00ffff',
+            6, '#ff8000',
+            '#888888' // Default color for undefined zones
+        ],
+        'circle-opacity': 0.4
+    }
+});
+
 
             // Get staff coordinates from the URL
             const urlParams = new URLSearchParams(window.location.search);
