@@ -28,18 +28,8 @@
         // Add zoom and rotation controls to the map
         map.addControl(new mapboxgl.NavigationControl());
 
-        // Convert miles to pixels at the current zoom level
-        function milesToPixels(miles, zoomLevel) {
-            const scale = map.getZoomScale(zoomLevel, 10); // Scale factor for zoom level
-            const metersPerPixel = 40008000 / (256 * scale); // Meters per pixel at zoom level
-            const meters = miles * 1609.34; // Convert miles to meters
-            return meters / metersPerPixel; // Return the radius in pixels
-        }
-
-        // Set a fixed 7-mile radius
-        const fixedRadiusMiles = 7;
-        const radiusInPixels = milesToPixels(fixedRadiusMiles, map.getZoom());
-
+        // Set a fixed 7-mile radius in pixels
+        const fixedRadiusPixels = 100; // Adjust this number based on your map zoom level and desired circle size
 
         // Updated zone data from KMeans clustering
         const zoneData = [
@@ -69,17 +59,19 @@
 
         // Add zones as a layer on the map
         map.on('load', () => {
+            // Add the source for the zones
             map.addSource('zones', {
                 type: 'geojson',
                 data: zonesGeoJSON
             });
 
+            // Add a circle layer for the zones
             map.addLayer({
                 id: 'zones-layer',
                 type: 'circle',
                 source: 'zones',
                 paint: {
-                    'circle-radius': radiusInPixels, // Use fixed radius in pixels
+                    'circle-radius': fixedRadiusPixels, // Use fixed radius in pixels
                     'circle-color': [
                         'match',
                         ['get', 'zone'],
@@ -96,14 +88,13 @@
                 }
             });
 
-
             // Get staff coordinates from the URL
             const urlParams = new URLSearchParams(window.location.search);
             const staffCoordinatesParam = urlParams.get('staff_coordinates'); // Assume coordinates are passed as a string of lat, lon, name pairs
 
             if (staffCoordinatesParam) {
                 // Parse the staff coordinates (assume they are separated by semicolons and use pipe for coordinates and names)
-                const staffCoordinates = staffCoordinatesParam.split(';').map((coord, index) => {
+                const staffCoordinates = staffCoordinatesParam.split(';').map((coord) => {
                     const parts = coord.split('|');
                     const latLon = parts[0].split(','); // First part is coordinates separated by a comma
                     const lat = parseFloat(latLon[1]);  // Latitude is the second value
