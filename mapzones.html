@@ -20,36 +20,55 @@
         // Initialize the Mapbox map
         const map = new mapboxgl.Map({
             container: 'map',
-            style: 'mapbox://styles/mapbox/streets-v11', // You can choose another Mapbox style
+            style: 'mapbox://styles/mapbox/streets-v11',
             center: [-118.2468, 34.0522], // Coordinates for the initial map view (center of LA)
             zoom: 10
         });
 
-        // Add zoom and rotation controls to the map
-        map.addControl(new mapboxgl.NavigationControl());
-
-        // Set a fixed 100 meter radius for the zones (in meters, fixed size)
-        const fixedRadiusMeters = 150; // Adjust this number based on your needs
-
-        // Updated zone data from KMeans clustering
+        // Zone data from KMeans clustering (example data)
         const zoneData = [
-            { lat: 34.08875342, lon: -117.75989543, zone: 0 }, // Zone 0
-            { lat: 34.17939374, lon: -118.15038961, zone: 1 }, // Zone 1
-            { lat: 33.987361, lon: -117.8536475, zone: 2 },    // Zone 2
-            { lat: 34.1995075, lon: -118.4779325, zone: 3 },   // Zone 3
-            { lat: 34.1485262, lon: -118.27352875, zone: 4 },  // Zone 4
-            { lat: 34.12673083, lon: -118.07720367, zone: 5 }, // Zone 5
-            { lat: 34.08010269, lon: -117.93141915, zone: 6 }  // Zone 6
+            { lat: 34.08875342, lon: -117.75989543, zone: 0 },
+            { lat: 34.17939374, lon: -118.15038961, zone: 1 },
+            { lat: 33.987361, lon: -117.8536475, zone: 2 },
+            { lat: 34.1995075, lon: -118.4779325, zone: 3 },
+            { lat: 34.1485262, lon: -118.27352875, zone: 4 },
+            { lat: 34.12673083, lon: -118.07720367, zone: 5 },
+            { lat: 34.08010269, lon: -117.93141915, zone: 6 }
         ];
 
-        // Create a GeoJSON for the zones
+        // Radius for the zones in meters
+        const zoneRadiusMeters = 10000; // 10 km radius
+
+        // Function to create a circular polygon
+        function createCircle(center, radius, points = 64) {
+            const coords = [];
+            const earthRadius = 6378137; // Earth's radius in meters
+            const lat = center.lat * Math.PI / 180; // Convert to radians
+            const lon = center.lon * Math.PI / 180;
+
+            for (let i = 0; i < points; i++) {
+                const angle = (i * 2 * Math.PI) / points;
+                const dx = radius * Math.cos(angle);
+                const dy = radius * Math.sin(angle);
+                const latOffset = dy / earthRadius;
+                const lonOffset = dx / (earthRadius * Math.cos(lat));
+                coords.push([
+                    (lon + lonOffset) * 180 / Math.PI,
+                    (lat + latOffset) * 180 / Math.PI
+                ]);
+            }
+            coords.push(coords[0]); // Close the polygon
+            return coords;
+        }
+
+        // Generate GeoJSON polygons for all zones
         const zonesGeoJSON = {
             type: 'FeatureCollection',
-            features: zoneData.map((zone) => ({
+            features: zoneData.map(zone => ({
                 type: 'Feature',
                 geometry: {
-                    type: 'Point',
-                    coordinates: [zone.lon, zone.lat] // Correct order: longitude first
+                    type: 'Polygon',
+                    coordinates: [createCircle({ lat: zone.lat, lon: zone.lon }, zoneRadiusMeters)]
                 },
                 properties: {
                     zone: zone.zone
@@ -57,22 +76,20 @@
             }))
         };
 
-        // Add zones as a layer on the map
         map.on('load', () => {
-            // Add the source for the zones
+            // Add the zone polygons to the map
             map.addSource('zones', {
                 type: 'geojson',
                 data: zonesGeoJSON
             });
 
-            // Add a circle layer for the zones with fixed size in meters
+            // Add a fill layer for the zones
             map.addLayer({
                 id: 'zones-layer',
-                type: 'circle',
+                type: 'fill',
                 source: 'zones',
                 paint: {
-                    'circle-radius': fixedRadiusMeters, // Use fixed radius in meters
-                    'circle-color': [
+                    'fill-color': [
                         'match',
                         ['get', 'zone'],
                         0, '#ff0000',
@@ -84,7 +101,18 @@
                         6, '#ff8000',
                         '#888888'
                     ],
-                    'circle-opacity': 0.4
+                    'fill-opacity': 0.4
+                }
+            });
+
+            // Add an outline to the polygons
+            map.addLayer({
+                id: 'zones-outline',
+                type: 'line',
+                source: 'zones',
+                paint: {
+                    'line-color': '#000000',
+                    'line-width': 2
                 }
             });
 
